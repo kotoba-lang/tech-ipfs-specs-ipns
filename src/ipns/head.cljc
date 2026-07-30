@@ -9,6 +9,13 @@
   namespace adds the other half, signing/verifying the mutable record that
   name points at.
 
+  **This record shape is local to kotobase.net and no IPFS implementation can
+  validate it.** It is not the IPNS Record of specs.ipfs.tech -- that one is a
+  protobuf whose signature covers a DAG-CBOR `data` field, and it lives in
+  `ipns.record`. Publishing these bytes to the DHT would put a record on the
+  network that every peer rejects. Use `ipns.record` for anything that leaves
+  kotobase.net; this namespace stays for the records already in that registry.
+
   `:clj`-only (JCA Ed25519 via `kotoba-lang/ed25519`'s did:key primitives,
   reused not reimplemented), matching `ed25519`/`cacao`'s own JVM-only
   convention -- `ipns.core` itself stays zero-dep and portable; only this

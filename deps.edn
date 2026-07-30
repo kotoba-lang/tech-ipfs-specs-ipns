@@ -9,7 +9,14 @@
          :git/sha "fdcefb9f1b83461fee54d04b63e374fa301ee847"}
         io.github.kotoba-lang/dag-cbor
         {:git/url "https://github.com/kotoba-lang/dag-cbor.git"
-         :git/sha "9c60d5832b771f869b237f5ba20f0b6de57cde84"}}
+         :git/sha "9c60d5832b771f869b237f5ba20f0b6de57cde84"}
+        ;; ipns.record needs the protobuf wire format (the IPNS record IS a
+        ;; protobuf) and the dag-cbor above (its signed `data` field is CBOR).
+        ;; Both are zero-dep .cljc, so ipns.record stays portable; only
+        ;; ipns.head remains :clj-only for its JCA Ed25519 path.
+        io.github.kotoba-lang/dev-protobuf
+        {:git/url "https://github.com/kotoba-lang/dev-protobuf.git"
+         :git/sha "fe67052627a70f3e406fab2f8dc475ea304be94c"}}
  :aliases
  {:test {:extra-paths ["test"]
          :extra-deps {io.github.cognitect-labs/test-runner
