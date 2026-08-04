@@ -73,6 +73,8 @@ the raw 32-byte public key directly.
 - `ipns.core` (zero-dep, portable `.cljc`):
   - `pubkey->name` — Ed25519 raw public key → CIDv1 libp2p-key IPNS name (`k51…`)
   - `name->pubkey` — inverse decode, with structural validation
+  - `name->pubkey*` / `name-matches-pubkey?` — the **fail-closed** pair a
+    verifier uses (see "The name is the key" below)
   - `base36` / `base36-decode` — the underlying multibase codec, portable
     `.cljc` (no `BigInteger`, so it runs identically on ClojureScript)
   - Verified byte-identical to a real go-ipfs/Kubo node's IPNS name for
@@ -91,6 +93,39 @@ network (host-port concern, see `kotoba-lang/ipfs`; kotobase.net resolves
 any DID method (see `kotoba-lang/did`), or a `:cljs` port of `ipns.head`'s
 signing (tracked follow-up — `kotobase-client` already has a `@noble/curves`
 precedent in its own `cacao.cljc` to port from).
+
+## The name is the key — and a verifier has to act like it
+
+This library's claim is that holding the Ed25519 private key *is* authority
+over the name `pubkey->name` derives from it: no registrar, no hand-off, no
+shared token. That claim is only true if **every verifier resolves the
+authoritative key from the name.**
+
+Until 2026-08-04 `ipns.head/verify` did not. It checked that the record's own
+`:public_key_multibase` had signed the payload, and never that that key is the
+one `:name` names. Since anyone can make a keypair, anyone could sign a record
+carrying somebody else's `k51…` and have it verify — and
+`kotobase.server.ipns/verify-and-decide-publish`, whose only other gate is
+sequence monotonicity, would accept it. That is takeover of an arbitrary name
+in kotobase.net's registry, and `head_test/name-takeover-is-refused`
+reproduces it against the unpatched code rather than describing it.
+
+`ipns.record/validate` never had the bug — it derives the pubkey with
+`name->pubkey` and verifies against *that*, which is the correct shape. The
+fix generalises that discipline into `ipns.core/name-matches-pubkey?` so both
+record formats, and the ClojureScript twin in `kotobase-client`, share one
+predicate instead of three chances to get it wrong:
+
+```clojure
+(ipns/name-matches-pubkey? name pub)   ; => true only if name IS pubkey->name(pub)
+```
+
+It is fail-closed by construction: a malformed name, a `nil` key or a key of
+the wrong length returns `false`, never a throw, because a verifier whose
+caller must remember a `try` will meet the adversarial input on the path
+where they forgot.
+
+Superproject decision record: **ADR-2608047000**.
 
 ## Provenance
 

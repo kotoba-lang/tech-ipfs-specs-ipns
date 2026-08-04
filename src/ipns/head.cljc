@@ -23,7 +23,8 @@
   name derivation never resolves them. A portable `:cljs` signing path
   (e.g. over `@noble/curves`, as `kotobase-client`'s own `cacao.cljc`
   already uses) is a tracked follow-up, not fabricated here."
-  (:require #?(:clj [ed25519.core :as ed])
+  (:require [ipns.core :as core]
+            #?(:clj [ed25519.core :as ed])
             #?(:clj [cbor.core :as cbor])))
 
 #?(:clj
@@ -56,13 +57,32 @@
       `:valid?` without a surrounding try/catch of their own.
       Sequence-rollback (CAS) is NOT this function's job -- that is the
       storage layer's optimistic-concurrency write
-      (`kotobase-cljc-worker`'s `r2-put-head-if-match`)."
+      (`kotobase-cljc-worker`'s `r2-put-head-if-match`).
+
+      **The signature alone is not authority over the name.** Until
+      2026-08-04 this function checked only that `:public_key_multibase`
+      signed the payload, and never that that key is the one `:name` names.
+      Since a `k51...` name IS `pubkey->name` of its Ed25519 key, an
+      attacker with any keypair of their own could sign a record carrying
+      somebody else's `:name`, and every verifier in the stack -- including
+      `kotobase.server.ipns/verify-and-decide-publish`, whose only other
+      gate is sequence monotonicity -- accepted it. That is a takeover of
+      an arbitrary name in kotobase.net's registry. `ipns.core/name-
+      matches-pubkey?` is now checked FIRST, so the authoritative key is
+      resolved from the name and `:public_key_multibase` is only ever a
+      restatement of it. `ipns.record/validate` already worked this way;
+      this is that discipline applied to the local registry shape."
      [record]
      (let [{:keys [public_key_multibase signature_multibase]} record
            payload (cbor/encode (dissoc record :public_key_multibase :signature_multibase))]
        {:valid? (boolean
                  (try
                    (and public_key_multibase signature_multibase
+                        ;; the name IS the key -- resolve authority from the
+                        ;; name, never from what the record claims alongside it
+                        (core/name-matches-pubkey?
+                         (:name record)
+                         (ed/did-key->pubkey public_key_multibase))
                         (ed/verify-did public_key_multibase
                                        payload
                                        (ed/b58-decode (subs signature_multibase 1))))
