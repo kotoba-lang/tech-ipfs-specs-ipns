@@ -33,9 +33,14 @@
                (vec (reverse (range 32)))]]
     (is (= pub (ipns/name->pubkey (ipns/pubkey->name pub))))))
 
-(deftest byte-array-input
-  (is (= (ipns/pubkey->name (vec (range 32)))
-         (ipns/pubkey->name (byte-array (range 32))))))
+;; `byte-array` is a JVM constructor with no ClojureScript analogue, so the
+;; assertion is :clj-only rather than merely unlinted -- it was an unguarded
+;; `Unresolved symbol` error under the cljs analysis, which is what kept
+;; `clojure -M:lint` red and therefore uninformative.
+#?(:clj
+   (deftest byte-array-input
+     (is (= (ipns/pubkey->name (vec (range 32)))
+            (ipns/pubkey->name (byte-array (range 32)))))))
 
 (deftest validation
   (is (thrown? #?(:clj clojure.lang.ExceptionInfo :cljs js/Error)
@@ -44,6 +49,32 @@
                (ipns/name->pubkey "not-a-k-name")))
   (is (thrown? #?(:clj clojure.lang.ExceptionInfo :cljs js/Error)
                (ipns/name->pubkey (str "k" (ipns/base36 [0x01 0x00]))))))
+
+(deftest name-matches-pubkey
+  (let [pub  (vec (range 32))
+        name (ipns/pubkey->name pub)
+        other (vec (reverse (range 32)))]
+    (testing "the key a name names matches that name"
+      (is (true? (ipns/name-matches-pubkey? name pub))))
+    (testing "any other key does not, however well-formed"
+      (is (false? (ipns/name-matches-pubkey? name other)))
+      (is (false? (ipns/name-matches-pubkey? (ipns/pubkey->name other) pub))))
+    (testing "byte-array and int-seq forms of the same key agree"
+      #?(:clj (is (true? (ipns/name-matches-pubkey? name (byte-array (range 32)))))
+         :cljs (is (true? (ipns/name-matches-pubkey?
+                           name (js/Uint8Array.from (into-array (range 32))))))))
+    (testing "fails closed instead of throwing, for every malformed input"
+      (is (false? (ipns/name-matches-pubkey? name nil)))
+      (is (false? (ipns/name-matches-pubkey? nil pub)))
+      (is (false? (ipns/name-matches-pubkey? "" pub)))
+      (is (false? (ipns/name-matches-pubkey? "not-a-k-name" pub)))
+      (is (false? (ipns/name-matches-pubkey? "k" pub)))
+      (is (false? (ipns/name-matches-pubkey? name (vec (range 31)))))
+      (is (false? (ipns/name-matches-pubkey? name (vec (range 33))))))
+    (testing "name->pubkey* is the fail-closed decode the predicate is built on"
+      (is (= pub (ipns/name->pubkey* name)))
+      (is (nil? (ipns/name->pubkey* "not-a-k-name")))
+      (is (nil? (ipns/name->pubkey* nil))))))
 
 (defn- pubkey-name-with-protobuf
   "Build a 'k...' IPNS name wrapping an arbitrary (possibly malformed)

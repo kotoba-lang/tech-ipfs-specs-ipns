@@ -99,3 +99,37 @@
                        (= 0x12 (nth pb 2)) (= 0x20 (nth pb 3)))
           (throw (ex-info "expected libp2p Ed25519 PublicKey protobuf" {:name name})))
         (vec (drop 4 pb))))))
+
+(defn name->pubkey*
+  "`name->pubkey`, fail-closed: `nil` for anything that is not a well-formed
+  Ed25519 libp2p-key name, instead of throwing.
+
+  Exists so a VERIFIER can be written without a surrounding try/catch. A
+  verifier that throws on a malformed name is a verifier whose caller has to
+  remember to catch, and the one it forgets is the adversarial input."
+  [name]
+  (try (name->pubkey name)
+       (catch #?(:clj Exception :cljs :default) _ nil)))
+
+(defn name-matches-pubkey?
+  "Does `name` name exactly `pub`?
+
+  **This is the check that makes `pubkey->name`'s claim true.** This library
+  says an actor's graph IS its key -- holding the private key is authority
+  over the name, no registrar. That property only holds if every verifier
+  resolves the authoritative key FROM THE NAME. A verifier that instead
+  trusts a key the record carries alongside the name is verifying that
+  somebody signed something, which any keypair can satisfy: an attacker
+  generates their own, signs a record naming someone else's `k51...`, and it
+  passes. `ipns.record/validate` already does the right thing (it derives the
+  pubkey with `name->pubkey` and verifies against that); this predicate is
+  the same discipline for the record shapes that carry an explicit key.
+
+  `pub` may be a byte-array, an int seq, or a `js/Uint8Array`, matching
+  `pubkey->name`'s own input contract. Fail-closed: `false` for a malformed
+  name, a `nil` key, or a key of the wrong length -- never a throw."
+  [name pub]
+  (boolean
+   (when (and (string? name) (some? pub))
+     (when-let [expected (name->pubkey* name)]
+       (= expected (vec (->byte-seq pub)))))))
