@@ -18,6 +18,13 @@ libp2p/IPFS naming), not different concepts of identity.
 | `ipns.record` | **the IPNS Record of specs.ipfs.tech** — protobuf whose `signatureV2` covers a DAG-CBOR `data` field | Kubo, Helia, every IPFS implementation, the libp2p DHT |
 | `ipns.head` | a kotobase-shaped map (`{:name :value :sequence :valid_until}`) | kotobase.net's own XRPC registry, and nothing else |
 
+`ipns.pubsub` is the transport-neutral state/effect core for the standard IPNS
+PubSub Router. It derives `/record/<base64url-unpadded(binary-routing-key)>`,
+validates every protobuf record before selection, persists and republishes only
+a strictly better record, and emits the Fetch effects that make PubSub updates
+persistent. A libp2p host executes those effects; this library does not pretend
+that an in-memory state machine is a live GossipSub/Fetch transport.
+
 `ipns.head` came first and is not wrong — it is a local registry's record. But
 it is **not** an IPNS record, so publishing those bytes to the DHT would put
 something on the network that every peer rejects. Getting the format right is
@@ -86,9 +93,14 @@ the raw 32-byte public key directly.
   record** (`{:name :value :sequence :valid_until ...}`, the kotoba
   lexicon `head.json`/`publish.json` shape) over a canonical dag-cbor
   payload, via `ed25519`'s did:key primitives (ADR-2607061800).
+- `ipns.pubsub` (portable `.cljc`): exact topic derivation plus a bounded
+  validate/select/persist/republish state machine. Network I/O is expressed as
+  effects (`:pubsub/subscribe`, `:pubsub/publish`, `:fetch/*`, `:persist/put`)
+  for an `io-libp2p` host adapter to execute.
 
-Not in scope: publishing/resolving IPNS records over the real IPFS/libp2p
-network (host-port concern, see `kotoba-lang/ipfs`; kotobase.net resolves
+Not in scope: opening a real IPFS/libp2p connection or implementing GossipSub
+and libp2p Fetch framing (host-port concern, see `kotoba-lang/io-libp2p`);
+kotobase.net resolves
 `ipns.head` records through its own XRPC registry instead, ADR-2607061800),
 any DID method (see `kotoba-lang/did`), or a `:cljs` port of `ipns.head`'s
 signing (tracked follow-up — `kotobase-client` already has a `@noble/curves`
