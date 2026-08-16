@@ -4,7 +4,7 @@
             [ipns.pubsub :as router]
             [ipns.record :as record]))
 
-(def name "k51qzi5uqu5dg6lcd99r9gmb963kgugjinxxggwy7o93oagk3f2eg3qcjh7127")
+(def ipns-name "k51qzi5uqu5dg6lcd99r9gmb963kgugjinxxggwy7o93oagk3f2eg3qcjh7127")
 (def validity (record/rfc3339-nanos
                {:year 2030 :month 1 :day 1 :hour 0 :minute 0 :second 0}))
 (def validation {:verify-fn (fn [_ message signature]
@@ -19,21 +19,21 @@
                    :sign-fn vec})))
 
 (deftest topic-is-record-plus-unpadded-base64url-routing-key
-  (let [t (router/topic name)]
+  (let [t (router/topic ipns-name)]
     (is (= "/record/L2lwbnMvACQIARIgAAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8" t))
     (is (not (.contains t "=")))
-    (is (not (.contains t name)))))
+    (is (not (.contains t ipns-name)))))
 
 (deftest start-and-persistence-effects-use-the-binary-routing-key
-  (let [state (router/init name)
+  (let [state (router/init ipns-name)
         effects (router/start-effects state)]
     (is (= [:pubsub/subscribe :fetch/serve] (mapv :op effects)))
-    (is (= (record/routing-key name) (:key (second effects))))
+    (is (= (record/routing-key ipns-name) (:key (second effects))))
     (is (= :fetch/request (:op (router/peer-subscribed state "peer-b"))))
     (is (nil? (router/fetch-request state "peer-b")))))
 
 (deftest only-a-validated-better-record-is-persisted-and-republished
-  (let [state (router/init name)
+  (let [state (router/init ipns-name)
         first-result (router/ingest state (wire 1) validation)
         state-1 (:state first-result)
         newer-result (router/ingest state-1 (wire 2) validation)]
@@ -46,7 +46,7 @@
     (is (= :pubsub/publish (:op (router/periodic-republish (:state newer-result)))))))
 
 (deftest malformed-or-unverifiable-record-has-no-effects
-  (let [state (router/init name)]
+  (let [state (router/init ipns-name)]
     (testing "malformed protobuf"
       (let [result (router/ingest state [255 255] validation)]
         (is (false? (:accepted? result)))
