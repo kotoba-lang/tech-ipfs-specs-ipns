@@ -1,0 +1,58 @@
+(ns ipns.pubsub-test
+  (:require #?(:clj [clojure.test :refer [deftest is testing]]
+               :cljs [cljs.test :refer [deftest is testing] :include-macros true])
+            [ipns.pubsub :as router]
+            [ipns.record :as record]))
+
+(def name "k51qzi5uqu5dg6lcd99r9gmb963kgugjinxxggwy7o93oagk3f2eg3qcjh7127")
+(def validity (record/rfc3339-nanos
+               {:year 2030 :month 1 :day 1 :hour 0 :minute 0 :second 0}))
+(def validation {:verify-fn (fn [_ message signature]
+                              (= (vec message) (vec signature)))
+                 :now-ms 1767225600000})
+
+(defn wire [sequence]
+  (record/serialize
+   (record/create {:value "/ipfs/bafkqaaa"
+                   :validity validity
+                   :sequence sequence
+                   :sign-fn vec})))
+
+(deftest topic-is-record-plus-unpadded-base64url-routing-key
+  (let [t (router/topic name)]
+    (is (= "/record/L2lwbnMvACQIARIgAAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8" t))
+    (is (not (.contains t "=")))
+    (is (not (.contains t name)))))
+
+(deftest start-and-persistence-effects-use-the-binary-routing-key
+  (let [state (router/init name)
+        effects (router/start-effects state)]
+    (is (= [:pubsub/subscribe :fetch/serve] (mapv :op effects)))
+    (is (= (record/routing-key name) (:key (second effects))))
+    (is (= :fetch/request (:op (router/peer-subscribed state "peer-b"))))
+    (is (nil? (router/fetch-request state "peer-b")))))
+
+(deftest only-a-validated-better-record-is-persisted-and-republished
+  (let [state (router/init name)
+        first-result (router/ingest state (wire 1) validation)
+        state-1 (:state first-result)
+        newer-result (router/ingest state-1 (wire 2) validation)]
+    (is (:accepted? first-result))
+    (is (= [:persist/put :pubsub/publish] (mapv :op (:effects first-result))))
+    (is (= :not-better (:reason (router/ingest state-1 (wire 1) validation))))
+    (is (:accepted? newer-result))
+    (is (= 2 (get-in newer-result [:state :record :sequence])))
+    (is (= :fetch/respond (:op (router/fetch-request (:state newer-result) "peer-b"))))
+    (is (= :pubsub/publish (:op (router/periodic-republish (:state newer-result)))))))
+
+(deftest malformed-or-unverifiable-record-has-no-effects
+  (let [state (router/init name)]
+    (testing "malformed protobuf"
+      (let [result (router/ingest state [255 255] validation)]
+        (is (false? (:accepted? result)))
+        (is (empty? (:effects result)))))
+    (testing "signature failure"
+      (let [result (router/ingest state (wire 1)
+                                  (assoc validation :verify-fn (constantly false)))]
+        (is (false? (:accepted? result)))
+        (is (empty? (:effects result)))))))
