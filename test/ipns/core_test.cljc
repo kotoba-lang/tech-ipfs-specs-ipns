@@ -33,14 +33,18 @@
                (vec (reverse (range 32)))]]
     (is (= pub (ipns/name->pubkey (ipns/pubkey->name pub))))))
 
-;; `byte-array` is a JVM constructor with no ClojureScript analogue, so the
-;; assertion is :clj-only rather than merely unlinted -- it was an unguarded
-;; `Unresolved symbol` error under the cljs analysis, which is what kept
-;; `clojure -M:lint` red and therefore uninformative.
-#?(:clj
-   (deftest byte-array-input
-     (is (= (ipns/pubkey->name (vec (range 32)))
-            (ipns/pubkey->name (byte-array (range 32)))))))
+;; `byte-array` is a JVM constructor, and ClojureScript DOES have an analogue:
+;; `js/Uint8Array`. An earlier comment here said it did not, and guarded the
+;; whole deftest as `:clj` on that basis -- which silenced the lint error but
+;; also stopped this promise from ever being asserted on the runtime where a
+;; browser or Worker peer would run it. `->byte-seq` says it takes "either JVM
+;; `byte[]` (signed) or plain Clojure int vectors"; each runtime has its own
+;; byte container, and the Uint8Array path was measured to produce the same
+;; name as the vector before this was written.
+(deftest byte-array-input
+  (is (= (ipns/pubkey->name (vec (range 32)))
+         (ipns/pubkey->name #?(:clj (byte-array (range 32))
+                               :cljs (js/Uint8Array.from (clj->js (vec (range 32)))))))))
 
 (deftest validation
   (is (thrown? #?(:clj clojure.lang.ExceptionInfo :cljs js/Error)
