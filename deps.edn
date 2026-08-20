@@ -7,9 +7,14 @@
  :deps {io.github.kotoba-lang/ed25519
         {:git/url "https://github.com/kotoba-lang/ed25519.git"
          :git/sha "fdcefb9f1b83461fee54d04b63e374fa301ee847"}
-        io.github.kotoba-lang/dag-cbor
-        {:git/url "https://github.com/kotoba-lang/dag-cbor.git"
-         :git/sha "9c60d5832b771f869b237f5ba20f0b6de57cde84"}
+        ;; Renamed upstream: kotoba-lang/dag-cbor is kotoba-lang/org-ietf-cbor.
+        ;; The old URL still resolves through GitHub's redirect, which is why
+        ;; this went unnoticed; the coordinate now names the repository that
+        ;; exists. The sha moves 18 commits, over the change that made `Tagged`
+        ;; a defrecord instead of a deftype -- SCI cannot dispatch a custom
+        ;; IEquiv/IHash on a deftype, so the old pin cannot load under nbb.
+        io.github.kotoba-lang/org-ietf-cbor
+        {:git/sha "cf2066f8dfa67a2934365519745231b4f1673a1a"}
         ;; ipns.record needs the protobuf wire format (the IPNS record IS a
         ;; protobuf) and the dag-cbor above (its signed `data` field is CBOR).
         ;; Both are zero-dep .cljc, so ipns.record stays portable; only

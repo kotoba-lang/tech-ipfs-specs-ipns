@@ -1,5 +1,6 @@
 (ns ipns.pubsub-test
-  (:require #?(:clj [clojure.test :refer [deftest is testing]]
+  (:require [clojure.string :as str]
+            #?(:clj [clojure.test :refer [deftest is testing]]
                :cljs [cljs.test :refer [deftest is testing] :include-macros true])
             [ipns.pubsub :as router]
             [ipns.record :as record]))
@@ -21,8 +22,13 @@
 (deftest topic-is-record-plus-unpadded-base64url-routing-key
   (let [t (router/topic ipns-name)]
     (is (= "/record/L2lwbnMvACQIARIgAAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8" t))
-    (is (not (.contains t "=")))
-    (is (not (.contains t ipns-name)))))
+    ;; `str/includes?`, not `.contains`: the latter is a Java String method
+    ;; with no JS counterpart (JS has `includes`), so on ClojureScript these
+    ;; two assertions errored with `Could not find instance method: contains`
+    ;; -- which nothing saw, because this namespace had never been run on that
+    ;; runtime.
+    (is (not (str/includes? t "=")))
+    (is (not (str/includes? t ipns-name)))))
 
 (deftest start-and-persistence-effects-use-the-binary-routing-key
   (let [state (router/init ipns-name)
