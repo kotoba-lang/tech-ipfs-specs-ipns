@@ -10,7 +10,7 @@
   no shared token (see kotoba-lang/kekkai `cacao.clj` and kotoba-lang/kagi
   `identity.clj`, the two JVM actor-identity call sites this library
   replaces the copy-pasted derivation in)."
-  (:require [clojure.string :as str]))
+  (:require [kotoba.lang.text :as str]))
 
 (def ^:private b36-alphabet "0123456789abcdefghijklmnopqrstuvwxyz")
 

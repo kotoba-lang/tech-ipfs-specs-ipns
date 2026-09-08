@@ -41,7 +41,7 @@
   every modern IPNS name is. RSA names carry their public key in the `pubKey`
   field because it does not fit in an identity multihash; that path is
   documented as absent rather than half-built."
-  (:require [clojure.string :as str]
+  (:require [kotoba.lang.text :as str]
             [cbor.core :as cbor]
             [ipns.core :as core]
             [protobuf.wire :as pb]))
