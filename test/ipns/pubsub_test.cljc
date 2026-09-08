@@ -1,5 +1,5 @@
 (ns ipns.pubsub-test
-  (:require [clojure.string :as str]
+  (:require [kotoba.lang.text :as str]
             #?(:clj [clojure.test :refer [deftest is testing]]
                :cljs [cljs.test :refer [deftest is testing] :include-macros true])
             [ipns.pubsub :as router]

@@ -11,7 +11,12 @@
  ;; nothing was broken here, only misnamed. It matters because tools.deps
  ;; dedupes by the coordinate SYMBOL: a closure that reaches this repository
  ;; under both names loads ed25519.core twice, from two checkouts at two shas.
- :deps {io.github.kotoba-lang/org-ietf-ed25519
+ :deps {
+        ;; kotoba.lang.text, not clojure.string. Pinned as an explicit floor:
+        ;; tools.deps takes the NEWEST sha it is shown, so without a floor here
+        ;; this repo silently rides whatever a sibling happens to name.
+        io.github.kotoba-lang/text {:git/sha "73bdb13ae7a3d004b44bca08be03a3191157a38f"}
+       io.github.kotoba-lang/org-ietf-ed25519
         {:git/sha "fdcefb9f1b83461fee54d04b63e374fa301ee847"}
         ;; Renamed upstream: kotoba-lang/dag-cbor is kotoba-lang/org-ietf-cbor.
         ;; The old URL still resolves through GitHub's redirect, which is why
