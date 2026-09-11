@@ -1,8 +1,8 @@
-#!/usr/bin/env nbb
+#!/usr/bin/env kbb
 (ns run-tests
   "The IPNS suite on nbb — the runtime a browser or Worker peer would use.
 
-  Every test namespace is listed explicitly. `clojure -M:test` finds them by
+  Every test namespace is listed explicitly. `kbb -M:test` finds them by
   scanning the directory and a cljs runner does not, so a namespace left out
   here does not fail: it silently never runs.
 
